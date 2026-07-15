@@ -4,6 +4,8 @@ p5.disableFriendlyErrors = true;
 let capturaVideo;
 let modeloPose;
 let dadosLandmarks = null;
+let cameraUtils = null;
+let modoCamera = "user"; // "user" = câmera frontal, "environment" = câmera traseira
 
 // Máquina de Estado da Interface
 let estadoApp = "TURMAS"; // TURMAS, GRUPOS, EXERCICIOS, PRATICA
@@ -33,11 +35,23 @@ function setup() {
   });
   modeloPose.onResults(onPoseResults);
 
-  const cameraUtils = new Camera(capturaVideo.elt, {
+  iniciarCamera();
+}
+
+function iniciarCamera() {
+  if (cameraUtils) cameraUtils.stop();
+  cameraUtils = new Camera(capturaVideo.elt, {
 	onFrame: async () => { await modeloPose.send({ image: capturaVideo.elt }); },
-	width: 640, height: 480
+	width: 640, height: 480,
+	facingMode: modoCamera
   });
   cameraUtils.start();
+}
+
+function trocarCamera() {
+  dadosLandmarks = null;
+  modoCamera = (modoCamera === "user") ? "environment" : "user";
+  iniciarCamera();
 }
 
 // 2. RESPONSIVIDADE: Recalcula tudo se o usuário girar a tela do celular
@@ -96,7 +110,9 @@ function mousePressed() {
   }
   else if (estadoApp === "PRATICA") {
 	// Área de clique para voltar (canto superior esquerdo)
-	if (clicou(0, 0, 120, 60)) estadoApp = "EXERCICIOS";
+	if (clicou(0, 0, 120, 55)) estadoApp = "EXERCICIOS";
+	// Área de clique para trocar câmera (canto superior direito)
+	if (clicou(width - 140, 0, 140, 55)) trocarCamera();
   }
 }
 
@@ -191,9 +207,13 @@ function desenharMenuExercicios() {
 // --- TELA DA CÂMERA ---
 function executarPratica() {
   // A imagem se ajusta para o tamanho total da tela do celular/computador
-  translate(width, 0); scale(-1, 1); 
-  image(capturaVideo, 0, 0, width, height); 
-  translate(width, 0); scale(-1, 1);
+  if (modoCamera === "user") {
+    translate(width, 0); scale(-1, 1);
+    image(capturaVideo, 0, 0, width, height);
+    translate(width, 0); scale(-1, 1);
+  } else {
+    image(capturaVideo, 0, 0, width, height);
+  }
 
   if (dadosLandmarks) {
 	desenharEsqueleto(dadosLandmarks);
@@ -204,8 +224,10 @@ function executarPratica() {
 
   // Painel estático Superior (Responsivo)
   fill(0, 0, 0, 180); rectMode(CORNER); noStroke(); rect(0, 0, width, 55);
-  fill(255); textAlign(LEFT, CENTER); textSize(18); text("⬅ Voltar", 15, 27);
-  textAlign(RIGHT, CENTER); text(`Placar: ${contadorRepeticoes + tempoExercicio}`, width - 15, 27);
+  let tsBar = constrain(min(width, height) * 0.055, 16, 22);
+  fill(255); textAlign(LEFT, CENTER); textSize(tsBar); text("⬅ Voltar", 15, 27);
+  textAlign(CENTER, CENTER); text(`Placar: ${contadorRepeticoes + tempoExercicio}`, width / 2, 27);
+  textAlign(RIGHT, CENTER); text(modoCamera === "user" ? "📷 Traseira" : "📷 Frontal", width - 10, 27);
 }
 
 // =========================================================================
@@ -513,19 +535,31 @@ function calcularInclinacaoTronco(ombro, quadril) {
   return Math.abs(angulo - 90);
 }
 function desenharMetrica(texto, landmark, corHex = "#FFFF00") {
-  let cx = (1 - landmark.x) * width; let cy = landmark.y * height;
-  fill(corHex); noStroke(); textSize(18); textAlign(LEFT, CENTER); text(texto, cx + 15, cy);
+  let cx = modoCamera === "user" ? (1 - landmark.x) * width : landmark.x * width;
+  let cy = landmark.y * height;
+  let ts = constrain(min(width, height) * 0.07, 20, 30);
+  fill(corHex); noStroke(); textSize(ts); textAlign(LEFT, CENTER); text(texto, cx + 15, cy);
 }
 function exibirFeedback(mensagem, corHex) {
-  let x = width / 2; let y = height - 80; 
-  textSize(20); let larguraTexto = textWidth(mensagem);
-  rectMode(CENTER); fill(0, 0, 0, 180); noStroke(); rect(x, y, larguraTexto + 30, 40, 8); 
-  fill(corHex); textAlign(CENTER, CENTER); text(mensagem, x, y); 
+  let x = width / 2; let y = height - 80;
+  let ts = constrain(min(width, height) * 0.075, 22, 34);
+  textSize(ts); let larguraTexto = textWidth(mensagem);
+  rectMode(CENTER); fill(0, 0, 0, 180); noStroke(); rect(x, y, larguraTexto + 30, ts + 14, 8);
+  fill(corHex); textAlign(CENTER, CENTER); text(mensagem, x, y);
 }
 function desenharEsqueleto(landmarks) {
-  let teste = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; 
+  let teste = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+  let ts = constrain(min(width, height) * 0.04, 12, 16);
   for (let i of teste) {
-	let cx = (1 - landmarks[i].x) * width; let cy = landmarks[i].y * height;
-	fill(0, 191, 255); stroke(255); strokeWeight(2); circle(cx, cy, 14); 
+	let cx = modoCamera === "user" ? (1 - landmarks[i].x) * width : landmarks[i].x * width;
+	let cy = landmarks[i].y * height;
+	// Círculo do ponto
+	fill(0, 191, 255); stroke(255); strokeWeight(2); circle(cx, cy, 14);
+	// Número oficial MediaPipe
+	textSize(ts);
+	let tw = textWidth(String(i));
+	rectMode(CENTER); fill(0, 0, 0, 200); noStroke(); rect(cx, cy + 13, tw + 6, ts + 4, 3);
+	fill(255, 255, 0); textAlign(CENTER, CENTER); text(i, cx, cy + 13);
+	rectMode(CORNER);
   }
 }
