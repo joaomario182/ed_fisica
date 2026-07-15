@@ -38,8 +38,21 @@ function setup() {
   iniciarCamera();
 }
 
-function iniciarCamera() {
-  if (cameraUtils) cameraUtils.stop();
+async function iniciarCamera() {
+  // 1. Para o Camera Utils do MediaPipe e aguarda a conclusão
+  if (cameraUtils) {
+    try { await cameraUtils.stop(); } catch(e) {}
+    cameraUtils = null;
+  }
+  // 2. Para forçadamente todas as tracks do stream ativo no elemento de vídeo
+  //    (necessário pois o createCapture do p5.js também inicia um stream próprio)
+  if (capturaVideo.elt.srcObject) {
+    capturaVideo.elt.srcObject.getTracks().forEach(t => t.stop());
+    capturaVideo.elt.srcObject = null;
+  }
+  // 3. Aguarda o navegador/SO liberar o hardware da câmera antes de reabrir
+  await new Promise(r => setTimeout(r, 400));
+
   cameraUtils = new Camera(capturaVideo.elt, {
 	onFrame: async () => { await modeloPose.send({ image: capturaVideo.elt }); },
 	width: 640, height: 480,
@@ -357,7 +370,7 @@ function regraT213_G4_Braco(lm) { let ang = calcularAngulo(lm[12], lm[14], lm[16
 function regraT213_G4_Ponte(lm) { let diff = lm[12].y - lm[24].y; desenharMetrica("Elevação: " + diff.toFixed(2), lm[24]); if (diff > 0.10) { exibirFeedback("Ponte sustentada! Ótimo.", "#00FF00"); if(frameCount%30===0) tempoExercicio++; } else { exibirFeedback("Levante o Quadril! > 0.10", "#FF0000"); } }
 function regraT213_G5_Poli(lm) { let b = lm[15].y < lm[11].y; let p = Math.abs(lm[27].x - lm[28].x) > 0.20; let distPes = Math.abs(lm[27].x - lm[28].x); desenharMetrica("Dist Pés: " + distPes.toFixed(2), lm[27]); if (b && p) { exibirFeedback("Polichinelo Completo!", "#00FF00"); movimentoDescendo = true; } else if (!b && !p && movimentoDescendo) { contadorRepeticoes++; movimentoDescendo = false; } else { exibirFeedback("Faça o Polichinelo", "#FFFFFF"); } }
 function regraT213_G5_Equil(lm) { let dist = Math.abs(lm[27].y - lm[28].y); let ang = calcularAngulo(lm[12], lm[24], lm[26]); desenharMetrica("Pés Dif Y: " + dist.toFixed(2), lm[27]); if (dist > 0.10 && ang > 160) { exibirFeedback("Equilíbrio Mantido!", "#00FF00"); if(frameCount%30===0) tempoExercicio++; } else { exibirFeedback("Levante um pé e fique reto!", "#FFFFFF"); } }
-function regraT213_G6_Yoga(lm) { let aB = calcularAngulo(lm[12], lm[14], lm[16]); let aP = calcularAngulo(lm[24], lm[26], lm[28]); let alt = lm[12].y < lm[24].y - 0.20; desenharMetrica(Math.round(aB)+"°", lm[14]); desenharMetrica(Math.round(aP)+"°", lm[26]); if (aB > 160 && aP > 160 && alt) { exibirFeedback("Upward Dog Perfeito!", "#00FF00"); if(frameCount%30===0) tempoExercicio++; } else { exibirFeedback("Estique braços/pernas e erga o peito", "#FFFFFF"); } }
+function regraT213_G6_Yoga(lm) { let aB = calcularAngulo(lm[12], lm[14], lm[16]); let aC = calcularAngulo(lm[12], lm[24], lm[26]); let aP = calcularAngulo(lm[24], lm[26], lm[28]); let alt = lm[12].y < lm[24].y - 0.20; desenharMetrica(Math.round(aB)+"°", lm[14]); desenharMetrica(Math.round(aP)+"°", lm[26]); desenharMetrica(Math.round(aC)+"°", lm[24]); if (aB > 160 && aP > 160 && alt && aC < 160) { exibirFeedback("Upward Dog Perfeito!", "#00FF00"); if(frameCount%30===0) tempoExercicio++; } else { exibirFeedback("Estique braços/pernas e erga o peito", "#FFFFFF"); } }
 function regraT213_G6_Scott(lm) { let ang = calcularAngulo(lm[12], lm[14], lm[16]); desenharMetrica(Math.round(ang)+"°", lm[14]); if (ang > 80 && ang < 100) { exibirFeedback("Chegou nos 90º! Estique.", "#00FF00"); movimentoDescendo = true; } else if (ang > 160 && movimentoDescendo) { contadorRepeticoes++; movimentoDescendo = false; } }
 function regraT213_G7_Flex(lm) { let ang = calcularAngulo(lm[12], lm[14], lm[16]); desenharMetrica(Math.round(ang)+"°", lm[14]); if (ang < 90) { exibirFeedback("Atingiu 90º. Suba!", "#00FF00"); movimentoDescendo = true; } else if (ang > 160 && movimentoDescendo) { contadorRepeticoes++; movimentoDescendo = false; } }
 function regraT213_G7_Abd(lm) { let dist = Math.abs(lm[12].y - lm[26].y); desenharMetrica("Dist Omb-Joelho: " + dist.toFixed(2), lm[12]); if (dist < 0.25) { exibirFeedback("Subiu tudo! Volte.", "#00FF00"); movimentoDescendo = true; } else if (dist > 0.50 && movimentoDescendo) { contadorRepeticoes++; movimentoDescendo = false; } }
