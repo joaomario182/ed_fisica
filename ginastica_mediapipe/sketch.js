@@ -17,6 +17,10 @@ let exercicioAtual = "";
 let contadorRepeticoes = 0;
 let movimentoDescendo = false;
 let tempoExercicio = 0;
+let ponteiroX = 0;
+let ponteiroY = 0;
+let ultimoToqueMs = -9999;
+const BLOQUEIO_MOUSE_APOS_TOQUE_MS = 450;
 
 function setup() {
   // 1. RESPONSIVIDADE: O canvas agora preenche toda a tela do dispositivo
@@ -76,6 +80,22 @@ function onPoseResults(results) { dadosLandmarks = results.poseLandmarks ? resul
 
 // --- CONTROLE DE MENUS RESPONSIVO ---
 function mousePressed() {
+  // Em mobile, o navegador pode disparar um mousePressed sintético após touch.
+  if (millis() - ultimoToqueMs < BLOQUEIO_MOUSE_APOS_TOQUE_MS) return false;
+  processarInteracao(mouseX, mouseY);
+  return false;
+}
+
+function touchStarted() {
+  if (touches.length === 0) return false;
+  ultimoToqueMs = millis();
+  processarInteracao(touches[0].x, touches[0].y);
+  return false;
+}
+
+function processarInteracao(x, y) {
+  ponteiroX = x;
+  ponteiroY = y;
   // Cálculos dinâmicos para os botões caberem em qualquer tela
   let bw = min(320, width * 0.9); // Largura do botão principal (máx 320px)
   let cx = width / 2 - bw / 2;    // Centraliza o botão no eixo X
@@ -129,7 +149,7 @@ function mousePressed() {
   }
 }
 
-function clicou(x, y, w, h) { return (mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h); }
+function clicou(x, y, w, h) { return (ponteiroX > x && ponteiroX < x + w && ponteiroY > y && ponteiroY < y + h); }
 
 function iniciarPratica(cod) { exercicioAtual = cod; contadorRepeticoes = 0; movimentoDescendo = false; tempoExercicio = 0; estadoApp = "PRATICA"; }
 
