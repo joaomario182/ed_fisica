@@ -19,8 +19,7 @@ let movimentoDescendo = false;
 let tempoExercicio = 0;
 let ponteiroX = 0;
 let ponteiroY = 0;
-let ultimoToqueMs = -9999;
-const BLOQUEIO_MOUSE_APOS_TOQUE_MS = 450;
+let toqueEmAndamento = false;
 
 function setup() {
   // 1. RESPONSIVIDADE: O canvas agora preenche toda a tela do dispositivo
@@ -80,16 +79,29 @@ function onPoseResults(results) { dadosLandmarks = results.poseLandmarks ? resul
 
 // --- CONTROLE DE MENUS RESPONSIVO ---
 function mousePressed() {
-  // Em mobile, o navegador pode disparar um mousePressed sintético após touch.
-  if (millis() - ultimoToqueMs < BLOQUEIO_MOUSE_APOS_TOQUE_MS) return false;
+  // Em mobile, o navegador dispara um mousePressed sintético logo após o touch.
+  // Como touchStarted já tratou a interação, ignoramos aqui enquanto o toque estiver ativo.
+  if (toqueEmAndamento) return false;
   processarInteracao(mouseX, mouseY);
   return false;
 }
 
 function touchStarted() {
   if (touches.length === 0) return false;
-  ultimoToqueMs = millis();
+  toqueEmAndamento = true;
   processarInteracao(touches[0].x, touches[0].y);
+  return false;
+}
+
+function touchMoved() {
+  // Bloqueia o scroll/zoom padrão do navegador durante o toque na tela
+  return false;
+}
+
+function touchEnded() {
+  // Só libera o mousePressed depois que o(s) evento(s) sintético(s) de mouse
+  // do navegador já tiverem sido disparados e ignorados.
+  setTimeout(() => { toqueEmAndamento = false; }, 500);
   return false;
 }
 
